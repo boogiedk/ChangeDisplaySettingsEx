@@ -126,7 +126,6 @@ class Program
                 rk!.SetValue(appName, appPath);
                 
                 var d = new DISPLAY_DEVICE();
-                var dm = new DEVMODE();
                 d.cb = Marshal.SizeOf(d);
 
                 // Проверяем, сколько дисплеев подключено
@@ -147,11 +146,20 @@ class Program
                 Log($"Total: {n} display(s)");
 
                 // Если подключен только один дисплей
-                if (n == 1)
+                if (n == 0)
                 {
-                    // Попробуем включить встроенный дисплей
-                    //EnumDisplayDevices(null, 0, ref d, 0);  // Обычно встроенный дисплей - это дисплей 0
-                    //ChangeDisplaySettingsEx(d.DeviceName, ref dm, IntPtr.Zero, 0, IntPtr.Zero);
+                    DEVMODE dm = new DEVMODE();
+                    dm.dmSize = (ushort)Marshal.SizeOf(typeof(DEVMODE));
+                    var result = ChangeDisplaySettingsEx("\\\\.\\DISPLAY1", ref dm, IntPtr.Zero, 0, IntPtr.Zero); 
+
+                    if (!result)
+                    {
+                        Log($"{DateTime.Now}: Error ChangeDisplaySettingsEx to Display 1 (Default display). Error code: {result}\n");
+                    }
+                    else
+                    {
+                        Log($"{DateTime.Now}: Success ChangeDisplaySettingsEx to Display 1 (Default display).\n");
+                    }
                 }
             }
             else

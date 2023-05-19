@@ -111,63 +111,69 @@ class Program
     static void Main()
     {
         Log("Application is running.");
-        
-        bool isNewInstance;
-        using (Mutex mutex = new Mutex(true, "ChangeDisplaySettingsEx", out isNewInstance))
+
+        while (true)
         {
-            if (isNewInstance)
+            bool isNewInstance;
+            using (Mutex mutex = new Mutex(true, "ChangeDisplaySettingsEx", out isNewInstance))
             {
-                ShowWindow(Process.GetCurrentProcess().MainWindowHandle, SW_HIDE);
-
-                var appName = AppDomain.CurrentDomain.FriendlyName;
-                var appPath = Process.GetCurrentProcess().MainModule!.FileName;
-
-                var rk = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-                rk!.SetValue(appName, appPath);
-                
-                var d = new DISPLAY_DEVICE();
-                d.cb = Marshal.SizeOf(d);
-
-                // Проверяем, сколько дисплеев подключено
-                var i = 0;
-                var n = 0;
-                while (EnumDisplayDevices(null, (uint) i, ref d, 0))
+                if (isNewInstance)
                 {
-                    if ((d.StateFlags & DisplayDeviceStateFlags.AttachedToDesktop) ==
-                        DisplayDeviceStateFlags.AttachedToDesktop)
+                    ShowWindow(Process.GetCurrentProcess().MainWindowHandle, SW_HIDE);
+
+                    var appName = AppDomain.CurrentDomain.FriendlyName;
+                    var appPath = Process.GetCurrentProcess().MainModule!.FileName;
+
+                    var rk = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+                    rk!.SetValue(appName, appPath);
+
+                    var d = new DISPLAY_DEVICE();
+                    d.cb = Marshal.SizeOf(d);
+
+                    // Проверяем, сколько дисплеев подключено
+                    var i = 0;
+                    var n = 0;
+                    while (EnumDisplayDevices(null, (uint) i, ref d, 0))
                     {
-                        n++;
-                        Log($"Display {i}: {d.DeviceName} {d.DeviceString} {d.DeviceID} {d.DeviceKey}");
+                        if ((d.StateFlags & DisplayDeviceStateFlags.AttachedToDesktop) ==
+                            DisplayDeviceStateFlags.AttachedToDesktop)
+                        {
+                            n++;
+                            Log($"Display {i}: {d.DeviceName} {d.DeviceString} {d.DeviceID} {d.DeviceKey}");
+                        }
+
+                        i++;
                     }
 
-                    i++;
+                    Log($"Total: {n} display(s)");
+
+                    // Если подключен только один дисплей
+                    if (n == 0)
+                    {
+                        DEVMODE dm = new DEVMODE();
+                        dm.dmSize = (ushort) Marshal.SizeOf(typeof(DEVMODE));
+                        var result = ChangeDisplaySettingsEx("\\\\.\\DISPLAY1", ref dm, IntPtr.Zero, 0, IntPtr.Zero);
+
+                        if (!result)
+                        {
+                            Log(
+                                $"{DateTime.Now}: Error ChangeDisplaySettingsEx to Display 1 (Default display). Error code: {result}\n");
+                        }
+                        else
+                        {
+                            Log($"{DateTime.Now}: Success ChangeDisplaySettingsEx to Display 1 (Default display).\n");
+                        }
+                    }
+                }
+                else
+                {
+                    Log("Application instance is already running.");
                 }
 
-                Log($"Total: {n} display(s)");
-
-                // Если подключен только один дисплей
-                if (n == 0)
-                {
-                    DEVMODE dm = new DEVMODE();
-                    dm.dmSize = (ushort)Marshal.SizeOf(typeof(DEVMODE));
-                    var result = ChangeDisplaySettingsEx("\\\\.\\DISPLAY1", ref dm, IntPtr.Zero, 0, IntPtr.Zero); 
-
-                    if (!result)
-                    {
-                        Log($"{DateTime.Now}: Error ChangeDisplaySettingsEx to Display 1 (Default display). Error code: {result}\n");
-                    }
-                    else
-                    {
-                        Log($"{DateTime.Now}: Success ChangeDisplaySettingsEx to Display 1 (Default display).\n");
-                    }
-                }
+                Log("Application finished.");
             }
-            else
-            {
-                Log("Application instance is already running.");
-            }
-
-            Log("Application finished.");
+            
+            Thread.Sleep(10000);
         }
 
         static void Log(string message)
